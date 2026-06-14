@@ -6,7 +6,7 @@
   <title>ASME Mentor Network — Penn State</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,7 +19,7 @@
       --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
       --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
     }
-    body { font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.6; color: var(--text); background: var(--bg); min-height: 100vh; }
+    body { font-family: 'Nunito', system-ui, sans-serif; font-size: 15px; line-height: 1.6; color: var(--text); background: var(--bg); min-height: 100vh; }
     h1,h2,h3,h4 { font-weight: 600; line-height: 1.3; }
     button { font-family: inherit; font-size: 13px; cursor: pointer; border-radius: var(--radius-sm); border: 1px solid var(--border-md); background: var(--surface); color: var(--text); padding: 7px 14px; transition: background 0.12s; }
     button:hover { background: #F0EFEC; }
@@ -70,13 +70,19 @@
     .card-body { padding: 1rem 1.1rem 1.1rem; }
     .card-name { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
     .role-entry { margin-bottom: 8px; }
-    .role-title { font-size: 13px; font-weight: 500; }
-    .role-company { font-size: 12px; color: var(--muted); }
-    .ind-tag { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 999px; margin-top: 4px; }
+    .role-title { font-size: 12px; color: var(--muted); }
+    .role-company { font-size: 13px; font-weight: 700; color: var(--text); }
     .card-divider { height: 1px; background: var(--border); margin: 10px 0; }
     .card-summary { font-size: 12px; color: var(--muted); line-height: 1.65; }
     .li-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--accent); font-weight: 500; margin-top: 8px; }
     .li-link:hover { text-decoration: underline; }
+
+    /* Filter bar */
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.5rem; align-items: center; }
+    .filter-label { font-size: 12px; color: var(--muted); font-weight: 500; margin-right: 2px; white-space: nowrap; }
+    .filter-pill { font-size: 12px; padding: 5px 13px; border-radius: 999px; border: 1px solid var(--border-md); background: var(--surface); color: var(--muted); cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s; white-space: nowrap; }
+    .filter-pill:hover { background: #F0EFEC; color: var(--text); }
+    .filter-pill.active { background: var(--accent-bg); color: var(--accent); border-color: transparent; font-weight: 500; }
 
     /* Status states */
     .status-box { text-align: center; padding: 5rem 2rem; color: var(--muted); }
@@ -140,6 +146,7 @@
       <h1>Find a mentor</h1>
       <p id="student-subline">Connect with Penn State ASME alumni and industry professionals.</p>
     </div>
+    <div id="filter-bar" class="filter-bar" role="group" aria-label="Filter by industry"></div>
     <div id="grid-wrap"></div>
   </main>
 </div>
@@ -230,21 +237,6 @@ const ADMIN_PASS   = "asmeadmin";
 const SHEET_ID     = "14lRLoMuaOR5KU8vfLBIIKVUprv-NvYp9pcm_9wPPrIE";
 const CSV_URL      = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/export?format=csv&gid=0";
 
-const IND_COLORS = {
-  "Aerospace":         { bg:"#EBF0F9", color:"#1A3A6B" },
-  "Automotive":        { bg:"#FEF3E2", color:"#7A4A0A" },
-  "Biomedical":        { bg:"#FCE8F3", color:"#7A1F55" },
-  "Campus Leadership": { bg:"#EEEEFF", color:"#3030A0" },
-  "Civil":             { bg:"#EAF5E8", color:"#235A1F" },
-  "Consulting":        { bg:"#F1F0EC", color:"#4A4A46" },
-  "Defense":           { bg:"#FDE8E4", color:"#7A2010" },
-  "Energy":            { bg:"#FDF5E0", color:"#7A5A00" },
-  "Manufacturing":     { bg:"#E0F5EE", color:"#0A5A3A" },
-  "Research":          { bg:"#FCEAEA", color:"#7A1F1F" },
-  "Robotics":          { bg:"#E0F5F5", color:"#0A5A5A" },
-  "Software":          { bg:"#EAF0FE", color:"#1A40A0" },
-  "Other":             { bg:"#F1F0EC", color:"#5A5A56" },
-};
 const AVC = [
   {bg:"#EBF0F9",c:"#1A3A6B"},{bg:"#E0F5EE",c:"#0A5A3A"},
   {bg:"#EEEEFF",c:"#3030A0"},{bg:"#FDF5E0",c:"#7A5A00"},
@@ -253,6 +245,8 @@ const AVC = [
 
 let userRole = null;
 let curAdminTab = "howto";
+let allMentors = [];
+let activeFilter = "All";
 
 function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function initials(n) { return (n||"?").split(" ").map(w=>w[0]||"").slice(0,2).join("").toUpperCase(); }
@@ -291,6 +285,7 @@ function parseCSV(text) {
 async function loadMentors() {
   const wrap = document.getElementById("grid-wrap");
   wrap.innerHTML = '<div class="status-box"><div class="spinner"></div><p>Loading mentors…</p></div>';
+  document.getElementById("filter-bar").innerHTML = "";
   try {
     const res = await fetch(CSV_URL);
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -300,7 +295,7 @@ async function loadMentors() {
     if (rows.length < 2) throw new Error("The sheet has no data rows yet. Add mentor rows below the header.");
     const hdrs = rows[0].map(h => h.toLowerCase().replace(/\s+/g,""));
     const get = (cols, key) => (cols[hdrs.indexOf(key)] || "").trim();
-    const mentors = rows.slice(1).filter(r => r.some(c=>c)).map((cols, idx) => {
+    allMentors = rows.slice(1).filter(r => r.some(c=>c)).map((cols, idx) => {
       const roles = [];
       for (let n = 1; n <= 10; n++) {
         const t=get(cols,"role"+n+"_title"), c=get(cols,"role"+n+"_company"), ind=get(cols,"role"+n+"_industry");
@@ -310,37 +305,69 @@ async function loadMentors() {
     }).filter(m => m.name);
 
     const countEl = document.getElementById("mentor-count");
-    if (countEl) countEl.textContent = mentors.length;
-    document.getElementById("student-subline").textContent = "Connect with " + mentors.length + " Penn State ASME alumni and industry professionals.";
+    if (countEl) countEl.textContent = allMentors.length;
 
-    if (!mentors.length) {
-      wrap.innerHTML = '<div class="status-box"><i class="ti ti-users" aria-hidden="true"></i><p>No mentors found. Add rows to the Google Sheet and refresh.</p></div>';
-      return;
-    }
-    const grid = document.createElement("div");
-    grid.className = "mentor-grid";
-    mentors.forEach((m, i) => {
-      const ph = m.photo
-        ? '<img class="card-photo" src="'+esc(m.photo)+'" alt="Photo of '+esc(m.name)+'" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
-          + '<div class="card-photo-ph" style="'+avStyle(i)+';display:none" aria-hidden="true">'+esc(initials(m.name))+'</div>'
-        : '<div class="card-photo-ph" style="'+avStyle(i)+'" aria-hidden="true">'+esc(initials(m.name))+'</div>';
-      const roles = m.roles.map(r => {
-        const ic = IND_COLORS[r.industry] || IND_COLORS["Other"];
-        return '<div class="role-entry"><div class="role-title">'+esc(r.title)+'</div><div class="role-company">'+esc(r.company)+'</div>'+(r.industry?'<span class="ind-tag" style="background:'+ic.bg+';color:'+ic.color+'">'+esc(r.industry)+'</span>':"")+'</div>';
-      }).join("");
-      const gb = m.gradYear ? '<span style="font-size:11px;color:var(--hint);font-weight:400;margin-left:6px;">Class of '+esc(m.gradYear)+'</span>' : "";
-      const sum = m.summary ? '<div class="card-divider"></div><div class="card-summary">'+esc(m.summary)+'</div>' : "";
-      const li  = m.linkedin ? '<a class="li-link" href="'+esc(m.linkedin)+'" target="_blank" rel="noopener"><i class="ti ti-brand-linkedin" aria-hidden="true"></i> LinkedIn</a>' : "";
-      const card = document.createElement("article");
-      card.className = "mentor-card";
-      card.innerHTML = ph + '<div class="card-body"><div class="card-name">'+esc(m.name)+gb+'</div>'+roles+sum+li+'</div>';
-      grid.appendChild(card);
-    });
-    wrap.innerHTML = "";
-    wrap.appendChild(grid);
+    activeFilter = "All";
+    buildFilterBar();
+    renderGrid();
   } catch(err) {
     wrap.innerHTML = '<div class="status-box"><i class="ti ti-alert-circle" aria-hidden="true"></i><p><strong>Could not load mentor data.</strong></p><p style="font-size:13px;">'+esc(err.message)+'</p></div>';
   }
+}
+
+function buildFilterBar() {
+  const bar = document.getElementById("filter-bar");
+  const industries = ["All", ...new Set(allMentors.flatMap(m => m.roles.map(r => r.industry)).filter(Boolean).sort())];
+  bar.innerHTML = '<span class="filter-label">Filter:</span>' +
+    industries.map(ind =>
+      '<button class="filter-pill' + (ind === activeFilter ? " active" : "") + '" data-ind="' + esc(ind) + '">' + esc(ind) + '</button>'
+    ).join("");
+  bar.querySelectorAll(".filter-pill").forEach(btn => {
+    btn.onclick = () => {
+      activeFilter = btn.dataset.ind;
+      bar.querySelectorAll(".filter-pill").forEach(b => b.classList.toggle("active", b.dataset.ind === activeFilter));
+      renderGrid();
+    };
+  });
+}
+
+function renderGrid() {
+  const wrap = document.getElementById("grid-wrap");
+  const subline = document.getElementById("student-subline");
+  const filtered = activeFilter === "All"
+    ? allMentors
+    : allMentors.filter(m => m.roles.some(r => r.industry === activeFilter));
+
+  subline.textContent = activeFilter === "All"
+    ? "Connect with " + allMentors.length + " Penn State ASME alumni and industry professionals."
+    : "Showing " + filtered.length + " mentor" + (filtered.length !== 1 ? "s" : "") + " in " + activeFilter + ".";
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="status-box"><i class="ti ti-users" aria-hidden="true"></i><p>No mentors match this filter.</p></div>';
+    return;
+  }
+  const grid = document.createElement("div");
+  grid.className = "mentor-grid";
+  filtered.forEach((m, i) => {
+    const globalIdx = allMentors.indexOf(m);
+    const ph = m.photo
+      ? '<img class="card-photo" src="'+esc(m.photo)+'" alt="Photo of '+esc(m.name)+'" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+        + '<div class="card-photo-ph" style="'+avStyle(globalIdx)+';display:none" aria-hidden="true">'+esc(initials(m.name))+'</div>'
+      : '<div class="card-photo-ph" style="'+avStyle(globalIdx)+'" aria-hidden="true">'+esc(initials(m.name))+'</div>';
+    const roles = m.roles.map(r =>
+      '<div class="role-entry"><div class="role-company">'+esc(r.company)+'</div><div class="role-title">'+esc(r.title)+'</div></div>'
+    ).join("");
+    const gb  = m.gradYear ? '<span style="font-size:11px;color:var(--hint);font-weight:400;margin-left:6px;">Class of '+esc(m.gradYear)+'</span>' : "";
+    const sum = m.summary  ? '<div class="card-summary" style="margin-bottom:10px;">'+esc(m.summary)+'</div>' : "";
+    const divider = m.roles.length && m.summary ? '<div class="card-divider"></div>' : "";
+    const li  = m.linkedin ? '<a class="li-link" href="'+esc(m.linkedin)+'" target="_blank" rel="noopener"><i class="ti ti-brand-linkedin" aria-hidden="true"></i> LinkedIn</a>' : "";
+    const card = document.createElement("article");
+    card.className = "mentor-card";
+    card.innerHTML = ph + '<div class="card-body"><div class="card-name">'+esc(m.name)+gb+'</div>'+sum+divider+roles+li+'</div>';
+    grid.appendChild(card);
+  });
+  wrap.innerHTML = "";
+  wrap.appendChild(grid);
 }
 
 function login() {
